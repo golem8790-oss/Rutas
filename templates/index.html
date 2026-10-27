@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Servientrega Ibagué - Optimización de carga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Servientrega Ibagué</h1>
+        <p>Gestión de paquetes, vehículos y rutas</p>
+    </header>
+
+    <main>
+        <section class="panel">
+            <h2>Registrar paquete</h2>
+
+            <form action="/registrar" method="POST">
+                <label>Peso (kg)</label>
+                <input type="number" name="peso" min="0.01" step="0.01" required>
+
+                <label>Altura (cm)</label>
+                <input type="number" name="altura" min="0.01" step="0.01" required>
+
+                <label>Ancho (cm)</label>
+                <input type="number" name="ancho" min="0.01" step="0.01" required>
+
+                <label>Profundidad (cm)</label>
+                <input type="number" name="profundidad" min="0.01" step="0.01" required>
+
+                <label>Tipo de paquete</label>
+                <select name="tipo" required>
+                    <option value="Documentos">Documentos</option>
+                    <option value="Caja">Caja</option>
+                    <option value="Frágil">Frágil</option>
+                    <option value="Otro">Otro</option>
+                </select>
+
+                <label>Prioridad (1 a 10)</label>
+                <input type="number" name="prioridad" min="1" max="10" required>
+
+                <label>Ubicación de entrega</label>
+                <select name="ubicacion" required>
+                    {% for punto in puntos %}
+                    <option value="{{ punto }}">{{ punto }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit">Registrar paquete</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Importar paquetes desde CSV</h2>
+            <p>El archivo debe tener las columnas indicadas en el ejemplo CSV.</p>
+
+            <form action="/cargar_csv" method="POST" enctype="multipart/form-data">
+                <input type="file" name="archivo" accept=".csv" required>
+                <button type="submit">Importar CSV</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Registrar vehículo</h2>
+
+            <form action="/registrar_vehiculo" method="POST">
+                <label>Nombre del vehículo</label>
+                <input type="text" name="nombre" required>
+
+                <label>Capacidad máxima de peso (kg)</label>
+                <input type="number" name="peso_maximo" min="0.01" step="0.01" required>
+
+                <label>Capacidad máxima de volumen (m³)</label>
+                <input type="number" name="volumen_maximo" min="0.0001" step="0.0001" required>
+
+                <button type="submit">Agregar vehículo</button>
+            </form>
+        </section>
+
+        <section class="panel">
+            <h2>Flota de vehículos</h2>
+
+            <table>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Peso máximo (kg)</th>
+                    <th>Volumen máximo (m³)</th>
+                </tr>
+
+                {% for vehiculo in flota %}
+                <tr>
+                    <td>{{ vehiculo.nombre }}</td>
+                    <td>{{ vehiculo.peso_maximo }}</td>
+                    <td>{{ vehiculo.volumen_maximo }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </section>
+
+        <section class="panel">
+            <h2>Paquetes registrados</h2>
+
+            {% if paquetes %}
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Tipo</th>
+                    <th>Peso (kg)</th>
+                    <th>Volumen (m³)</th>
+                    <th>Prioridad</th>
+                    <th>Ubicación</th>
+                </tr>
+
+                {% for paquete in paquetes %}
+                <tr>
+                    <td>{{ paquete.id }}</td>
+                    <td>{{ paquete.tipo }}</td>
+                    <td>{{ paquete.peso }}</td>
+                    <td>{{ "%.4f"|format(paquete.volumen) }}</td>
+                    <td>{{ paquete.prioridad }}</td>
+                    <td>{{ paquete.ubicacion }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <p>Aún no hay paquetes registrados.</p>
+            {% endif %}
+        </section>
+
+        <section class="panel">
+            <h2>Optimizar la carga de la flota</h2>
+
+            <form action="/optimizar" method="POST">
+                <label>Selecciona un algoritmo</label>
+                <select name="metodo">
+                    <option value="greedy">Greedy</option>
+                    <option value="mochila">Mochila 0/1</option>
+                </select>
+
+                <button type="submit">Distribuir paquetes</button>
+            </form>
+        </section>
+
+        {% if resultados %}
+        <section class="panel">
+            <h2>Resultados de la optimización</h2>
+            <p>Algoritmo utilizado: {{ resultados.metodo }}</p>
+
+            {% for resultado in resultados.vehiculos %}
+            <h3>{{ resultado.vehiculo }}</h3>
+
+            <p>Paquetes asignados: {{ resultado.cantidad }}</p>
+            <p>Peso utilizado: {{ resultado.peso }} kg</p>
+            <p>Volumen utilizado: {{ "%.4f"|format(resultado.volumen) }} m³</p>
+            <p>Prioridad total: {{ resultado.prioridad }}</p>
+            <p>Peso restante: {{ resultado.peso_restante }} kg</p>
+            <p>Volumen restante: {{ "%.4f"|format(resultado.volumen_restante) }} m³</p>
+            <p>Ruta: {{ resultado.recorrido | join(" → ") }}</p>
+            <p>Distancia total simulada: {{ resultado.distancia }} km</p>
+
+            <h4>Paquetes del vehículo</h4>
+
+            {% if resultado.paquetes %}
+            <ul>
+                {% for paquete in resultado.paquetes %}
+                <li>
+                    Paquete {{ paquete.id }} -
+                    {{ paquete.tipo }} -
+                    {{ paquete.peso }} kg -
+                    {{ paquete.ubicacion }}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p>Este vehículo no recibió paquetes.</p>
+            {% endif %}
+            {% endfor %}
+
+            <h3>Paquetes sin asignar</h3>
+
+            {% if resultados.sin_asignar %}
+            <ul>
+                {% for paquete in resultados.sin_asignar %}
+                <li>
+                    Paquete {{ paquete.id }} -
+                    {{ paquete.tipo }} -
+                    {{ paquete.peso }} kg
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p>Todos los paquetes fueron asignados.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
+</body>
+</html>
